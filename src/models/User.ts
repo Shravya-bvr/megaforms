@@ -11,6 +11,12 @@ export interface IUser extends Document {
   responsesUsedThisMonth: number
   isVerified: boolean
   createdAt: Date
+
+  // 👉 ADD THESE
+  verificationToken?: string
+  resetPasswordToken?: string
+  resetPasswordExpires?: Date
+
   comparePassword(password: string): Promise<boolean>
   getResponseLimit(): number
 }
