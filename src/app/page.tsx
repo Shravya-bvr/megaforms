@@ -1,7 +1,7 @@
 function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0)
   const [mounted, setMounted] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLSpanElement>(null)
   const started = useRef(false)
 
   useEffect(() => {
@@ -30,6 +30,6 @@ function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
     return () => observer.disconnect()
   }, [target, mounted])
 
-  if (!mounted) return <div>{target}{suffix}</div>
-  return <div ref={ref}>{count}{suffix}</div>
+  if (!mounted) return <span>{target}{suffix}</span>
+  return <span ref={ref}>{count}{suffix}</span>
 }
