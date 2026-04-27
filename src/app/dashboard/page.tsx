@@ -62,6 +62,7 @@ export default function DashboardPage() {
       const data = await res.json()
       if (res.ok) {
         setForms(prev => [data.form, ...prev])
+router.push(`/dashboard/forms/${data.form._id}`)
         setNewTitle('')
         setShowModal(false)
       }
