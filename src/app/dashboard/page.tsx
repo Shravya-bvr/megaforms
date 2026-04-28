@@ -220,7 +220,12 @@ router.push(`/dashboard/forms/${data.form._id}`)
               <div key={form._id} className="bg-white rounded-2xl border border-gray-100 p-6 flex items-center gap-6 hover:border-red-100 hover:shadow-md transition-all">
                 <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-xl flex-shrink-0">📋</div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-900 truncate">{form.title}</h3>
+                <h3 
+  className="font-bold text-gray-900 truncate cursor-pointer hover:text-red-600 transition-colors"
+  onClick={() => router.push(`/dashboard/forms/${form._id}`)}
+>
+  {form.title}
+</h3>
                   <p className="text-gray-400 text-xs mt-1">
                     {new Date(form.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
