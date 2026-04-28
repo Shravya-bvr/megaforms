@@ -105,7 +105,7 @@ export default function FormBuilderPage() {
   const addQuestion = (type: string) => {
     if (!form) return
     const newQ: Question = {
-      id: Date.now().toString(),
+      id: `q_${Math.random().toString(36).substr(2, 9)}`,
       type,
       question: type === 'statement' ? 'This is a statement' : `Your ${type} question here?`,
       placeholder: 'Type your answer...',
