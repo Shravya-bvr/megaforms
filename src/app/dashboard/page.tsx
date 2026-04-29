@@ -79,10 +79,27 @@ export default function DashboardPage() {
   }
 
   const deleteForm = async (formId: string) => {
-    if (!confirm('Delete this form? This cannot be undone.')) return
-    await fetch(`/api/forms/${formId}`, { method: 'DELETE' })
-    setForms(prev => prev.filter(f => f._id !== formId))
+  if (!confirm('Delete this form? This cannot be undone.')) return
+  
+  // Remove from UI immediately
+  setForms(prev => prev.filter(f => f._id !== formId))
+  
+  try {
+    const res = await fetch(`/api/forms/${formId}`, { 
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    
+    if (!res.ok) {
+      // If failed, restore the form
+      fetchForms()
+      alert('Failed to delete. Please try again.')
+    }
+  } catch (e) {
+    console.error(e)
+    fetchForms()
   }
+}
 
   const plan = (session?.user as { plan?: string })?.plan || 'free'
   const limit = PLAN_LIMITS[plan]
