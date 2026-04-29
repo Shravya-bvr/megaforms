@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -33,10 +33,13 @@ const QUESTION_TYPES = [
   { type: 'statement', label: 'Statement', icon: '💬' },
 ]
 
+const generateId = () => `q_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+
 export default function FormBuilderPage() {
   const params = useParams()
   const router = useRouter()
   const { status } = useSession()
+  const idCounter = useRef(0)
 
   const [form, setForm] = useState<FormData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -104,8 +107,9 @@ export default function FormBuilderPage() {
 
   const addQuestion = (type: string) => {
     if (!form) return
+    idCounter.current += 1
     const newQ: Question = {
-      id: `q_${Math.random().toString(36).substr(2, 9)}`,
+      id: `q_${idCounter.current}_${type}`,
       type,
       question: type === 'statement' ? 'This is a statement' : `Your ${type} question here?`,
       placeholder: 'Type your answer...',
@@ -114,35 +118,41 @@ export default function FormBuilderPage() {
         ? ['Option 1', 'Option 2', 'Option 3']
         : undefined,
     }
-    setForm({ ...form, questions: [...form.questions, newQ] })
+    setForm(prev => prev ? { ...prev, questions: [...prev.questions, newQ] } : prev)
     setActiveQ(newQ.id)
   }
 
   const updateQuestion = (id: string, updates: Partial<Question>) => {
-    if (!form) return
-    setForm({
-      ...form,
-      questions: form.questions.map(q => q.id === id ? { ...q, ...updates } : q),
+    setForm(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        questions: prev.questions.map(q => q.id === id ? { ...q, ...updates } : q),
+      }
     })
   }
 
   const deleteQuestion = (id: string) => {
-    if (!form) return
-    setForm({ ...form, questions: form.questions.filter(q => q.id !== id) })
+    setForm(prev => {
+      if (!prev) return prev
+      return { ...prev, questions: prev.questions.filter(q => q.id !== id) }
+    })
     setActiveQ(null)
   }
 
   const moveQuestion = (id: string, direction: 'up' | 'down') => {
-    if (!form) return
-    const idx = form.questions.findIndex(q => q.id === id)
-    if (direction === 'up' && idx === 0) return
-    if (direction === 'down' && idx === form.questions.length - 1) return
-    const newQs = [...form.questions]
-    const swap = direction === 'up' ? idx - 1 : idx + 1
-    const temp = newQs[idx]
-    newQs[idx] = newQs[swap]
-    newQs[swap] = temp
-    setForm({ ...form, questions: newQs })
+    setForm(prev => {
+      if (!prev) return prev
+      const idx = prev.questions.findIndex(q => q.id === id)
+      if (direction === 'up' && idx === 0) return prev
+      if (direction === 'down' && idx === prev.questions.length - 1) return prev
+      const newQs = [...prev.questions]
+      const swap = direction === 'up' ? idx - 1 : idx + 1
+      const temp = newQs[idx]
+      newQs[idx] = newQs[swap]
+      newQs[swap] = temp
+      return { ...prev, questions: newQs }
+    })
   }
 
   const copyLink = () => {
@@ -152,8 +162,7 @@ export default function FormBuilderPage() {
   }
 
   const copyEmbed = () => {
-    const code = `<script src="${window.location.origin}/embed.js" data-form="${shareToken}"></script>`
-    navigator.clipboard.writeText(code)
+    navigator.clipboard.writeText(`<script src="${window.location.origin}/embed.js" data-form="${shareToken}"></script>`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -166,20 +175,23 @@ export default function FormBuilderPage() {
 
   if (!form) return (
     <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-500">Form not found</p>
+      <div className="text-center">
+        <p className="text-gray-500 mb-4">Form not found</p>
+        <Link href="/dashboard" className="text-red-600 font-semibold">← Back to dashboard</Link>
+      </div>
     </div>
   )
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-4 sticky top-0 z-50">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">
+      <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-4 sticky top-0 z-50 shadow-sm">
+        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors text-sm font-medium">
           ← Back
         </Link>
         <input
           value={form.title}
-          onChange={e => setForm({ ...form, title: e.target.value })}
+          onChange={e => setForm(prev => prev ? { ...prev, title: e.target.value } : prev)}
           className="font-bold text-gray-900 text-lg outline-none border-b-2 border-transparent focus:border-red-400 px-1 transition-colors bg-transparent flex-1"
         />
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
@@ -206,7 +218,7 @@ export default function FormBuilderPage() {
       {/* BUILD TAB */}
       {tab === 'build' && (
         <div className="flex flex-1 overflow-hidden">
-          {/* Left panel */}
+          {/* Left - Question types */}
           <div className="w-56 bg-white border-r border-gray-100 p-4 overflow-y-auto shrink-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Add Question</p>
             <div className="space-y-1">
@@ -221,13 +233,13 @@ export default function FormBuilderPage() {
             </div>
           </div>
 
-          {/* Middle */}
+          {/* Middle - Questions */}
           <div className="flex-1 p-6 overflow-y-auto">
             {form.questions.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <p className="text-5xl mb-4">📋</p>
                 <h3 className="text-xl font-black text-gray-900 mb-2">No questions yet</h3>
-                <p className="text-gray-400 text-sm">Click a question type on the left to add your first question</p>
+                <p className="text-gray-400 text-sm">Click a question type on the left to get started</p>
               </div>
             ) : (
               <div className="max-w-2xl mx-auto space-y-3">
@@ -236,7 +248,7 @@ export default function FormBuilderPage() {
                     className={`bg-white rounded-2xl border-2 p-5 cursor-pointer transition-all ${activeQ === q.id ? 'border-red-400 shadow-lg' : 'border-gray-100 hover:border-gray-200'}`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-gray-300 font-bold text-sm mt-1">{idx + 1}</span>
+                      <span className="text-gray-300 font-bold text-sm mt-1 shrink-0">{idx + 1}</span>
                       <div className="flex-1 min-w-0">
                         {activeQ === q.id ? (
                           <input value={q.question}
@@ -245,16 +257,14 @@ export default function FormBuilderPage() {
                             onClick={e => e.stopPropagation()}
                           />
                         ) : (
-                          <p className="font-semibold text-gray-900 mb-1">{q.question}</p>
+                          <p className="font-semibold text-gray-900 mb-1 truncate">{q.question}</p>
                         )}
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
                             {QUESTION_TYPES.find(t => t.type === q.type)?.icon}{' '}
                             {QUESTION_TYPES.find(t => t.type === q.type)?.label}
                           </span>
-                          {q.required && (
-                            <span className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Required</span>
-                          )}
+                          {q.required && <span className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Required</span>}
                         </div>
                         {activeQ === q.id && q.options && (
                           <div className="mt-3 space-y-2">
@@ -273,13 +283,13 @@ export default function FormBuilderPage() {
                                 <button onClick={e => {
                                   e.stopPropagation()
                                   updateQuestion(q.id, { options: q.options?.filter((_, i) => i !== oi) })
-                                }} className="text-gray-300 hover:text-red-400 text-sm">✕</button>
+                                }} className="text-gray-300 hover:text-red-400">✕</button>
                               </div>
                             ))}
                             <button onClick={e => {
                               e.stopPropagation()
                               updateQuestion(q.id, { options: [...(q.options || []), `Option ${(q.options?.length || 0) + 1}`] })
-                            }} className="text-xs text-red-500 hover:text-red-600 font-medium">+ Add option</button>
+                            }} className="text-xs text-red-500 font-medium">+ Add option</button>
                           </div>
                         )}
                       </div>
@@ -288,8 +298,8 @@ export default function FormBuilderPage() {
                           <button onClick={e => { e.stopPropagation(); moveQuestion(q.id, 'up') }} className="p-1 text-gray-400 hover:text-gray-600 text-xs">▲</button>
                           <button onClick={e => { e.stopPropagation(); moveQuestion(q.id, 'down') }} className="p-1 text-gray-400 hover:text-gray-600 text-xs">▼</button>
                           <button onClick={e => { e.stopPropagation(); updateQuestion(q.id, { required: !q.required }) }}
-                            className={`p-1 text-xs rounded font-bold ${q.required ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}`}>*</button>
-                          <button onClick={e => { e.stopPropagation(); deleteQuestion(q.id) }} className="p-1 text-gray-400 hover:text-red-500 text-xs">🗑</button>
+                            className={`p-1 text-xs font-bold ${q.required ? 'text-red-500' : 'text-gray-400'}`}>*</button>
+                          <button onClick={e => { e.stopPropagation(); deleteQuestion(q.id) }} className="p-1 text-gray-400 hover:text-red-500">🗑</button>
                         </div>
                       )}
                     </div>
@@ -299,7 +309,7 @@ export default function FormBuilderPage() {
             )}
           </div>
 
-          {/* Right preview */}
+          {/* Right - Preview */}
           <div className="w-72 bg-white border-l border-gray-100 p-4 overflow-y-auto shrink-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Live Preview</p>
             <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
@@ -312,13 +322,13 @@ export default function FormBuilderPage() {
                 <div className="flex gap-2 items-end">
                   <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center text-white text-xs font-bold shrink-0">M</div>
                   <div className="bg-white rounded-2xl rounded-bl-none px-3 py-2 text-xs text-gray-700 shadow-sm border border-gray-100">
-                    👋 Hi! Welcome to <strong>{form.title}</strong>
+                    👋 Welcome to <strong>{form.title}</strong>
                   </div>
                 </div>
                 {form.questions.slice(0, 3).map((q, i) => (
                   <div key={i} className="flex gap-2 items-end">
                     <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center text-white text-xs font-bold shrink-0">M</div>
-                    <div className="bg-white rounded-2xl rounded-bl-none px-3 py-2 text-xs text-gray-700 shadow-sm border border-gray-100 max-w-xs">{q.question}</div>
+                    <div className="bg-white rounded-2xl rounded-bl-none px-3 py-2 text-xs text-gray-700 shadow-sm border border-gray-100 max-w-full break-words">{q.question}</div>
                   </div>
                 ))}
                 {form.questions.length > 3 && (
@@ -342,7 +352,8 @@ export default function FormBuilderPage() {
               <h3 className="font-black text-gray-900 text-lg">Form Settings</h3>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Form Title</label>
-                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+                <input value={form.title}
+                  onChange={e => setForm(prev => prev ? { ...prev, title: e.target.value } : prev)}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-400"
                 />
               </div>
@@ -358,7 +369,7 @@ export default function FormBuilderPage() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-400"
                 />
               </div>
-              <button onClick={saveForm} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all">
+              <button onClick={saveForm} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold text-sm">
                 Save Settings
               </button>
             </div>
@@ -377,17 +388,19 @@ export default function FormBuilderPage() {
                   <p className="font-bold text-yellow-800">Form not published yet</p>
                   <p className="text-yellow-600 text-sm">Publish your form first to share it</p>
                 </div>
-                <button onClick={togglePublish} className="bg-yellow-500 text-white px-4 py-2 rounded-xl text-sm font-bold">Publish now</button>
+                <button onClick={togglePublish} className="bg-yellow-500 text-white px-4 py-2 rounded-xl text-sm font-bold shrink-0">
+                  Publish now
+                </button>
               </div>
             )}
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h3 className="font-black text-gray-900 text-lg mb-1">Share as Link</h3>
-              <p className="text-gray-400 text-sm mb-4">Share this URL directly with your audience</p>
+              <p className="text-gray-400 text-sm mb-4">Share this URL with your audience</p>
               <div className="flex gap-2">
                 <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}/f/${shareToken}`}
                   className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 text-gray-600"
                 />
-                <button onClick={copyLink} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl font-bold text-sm">
+                <button onClick={copyLink} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all">
                   {copied ? '✓ Copied!' : 'Copy'}
                 </button>
               </div>
@@ -406,7 +419,7 @@ export default function FormBuilderPage() {
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h3 className="font-black text-gray-900 text-lg mb-1">Preview Form</h3>
-              <p className="text-gray-400 text-sm mb-4">See how visitors will experience your form</p>
+              <p className="text-gray-400 text-sm mb-4">See how visitors experience your form</p>
               <a href={`/f/${shareToken}`} target="_blank"
                 className="inline-flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-5 py-3 rounded-xl font-bold text-sm transition-all">
                 Open Preview →
