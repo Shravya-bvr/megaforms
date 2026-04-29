@@ -34,13 +34,11 @@ export async function POST(req: Request) {
     await connectDB()
     const user = await User.findOne({ email: session.user.email })
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-
     const formCount = await Form.countDocuments({ user: user._id })
     const limit = FORM_LIMITS[user.plan] || 3
     if (formCount >= limit) {
-      return NextResponse.json({ error: `Your ${user.plan} plan allows max ${limit} forms. Please upgrade.` }, { status: 403 })
+      return NextResponse.json({ error: `Your ${user.plan} plan allows max ${limit} forms.` }, { status: 403 })
     }
-
     const body = await req.json()
     const form = await Form.create({ ...body, user: user._id })
     return NextResponse.json({ form }, { status: 201 })
