@@ -40,7 +40,7 @@ export default function DashboardPage() {
       const res = await fetch('/api/forms')
       const data = await res.json()
       setForms(data.forms || [])
-    } catch { }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -61,20 +61,19 @@ export default function DashboardPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setForms(prev => [data.form, ...prev])
-router.push(`/dashboard/forms/${data.form._id}`)
         setNewTitle('')
         setShowModal(false)
+        router.push(`/dashboard/forms/${data.form._id}`)
       }
-    } catch { }
+    } catch (e) { console.error(e) }
     setCreating(false)
   }
 
-  const togglePublish = async (formId: string) => {
+  const togglePublish = async (formId: string, currentStatus: boolean) => {
     const res = await fetch(`/api/forms/${formId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isPublished: !forms.find(f => f._id === formId)?.isPublished })
+      body: JSON.stringify({ isPublished: !currentStatus })
     })
     if (res.ok) fetchForms()
   }
@@ -87,18 +86,15 @@ router.push(`/dashboard/forms/${data.form._id}`)
 
   const plan = (session?.user as { plan?: string })?.plan || 'free'
   const limit = PLAN_LIMITS[plan]
-  const canCreate = forms.length < limit
 
-  if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"/>
-          <p className="text-gray-400 text-sm">Loading your dashboard...</p>
-        </div>
+  if (status === 'loading' || loading) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"/>
+        <p className="text-gray-400 text-sm">Loading...</p>
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -113,22 +109,20 @@ router.push(`/dashboard/forms/${data.form._id}`)
 
         <nav className="flex-1 p-4 space-y-1">
           {[
-            { icon: '📊', label: 'Dashboard', active: true },
-            { icon: '📋', label: 'My Forms' },
-            { icon: '📥', label: 'Responses' },
-            { icon: '🔗', label: 'Integrations' },
-            { icon: '⚙️', label: 'Settings' },
+            { icon: '📊', label: 'Dashboard', href: '/dashboard', active: true },
+            { icon: '📋', label: 'My Forms', href: '/dashboard' },
+            { icon: '📥', label: 'Responses', href: '/dashboard/responses' },
+            { icon: '🔗', label: 'Integrations', href: '/dashboard/integrations' },
+            { icon: '⚙️', label: 'Settings', href: '/dashboard/settings' },
           ].map((item, i) => (
-            <button key={i}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                item.active
-                  ? 'bg-red-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+            <Link key={i} href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                item.active ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <span>{item.icon}</span>
               {item.label}
-            </button>
+            </Link>
           ))}
         </nav>
 
@@ -152,7 +146,6 @@ router.push(`/dashboard/forms/${data.form._id}`)
             )}
           </div>
 
-          {/* User */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
               {session?.user?.name?.[0]?.toUpperCase()}
@@ -179,14 +172,14 @@ router.push(`/dashboard/forms/${data.form._id}`)
             </p>
           </div>
           <button
-            onClick={() => canCreate ? setShowModal(true) : router.push('/pricing')}
+            onClick={() => setShowModal(true)}
             className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all hover:shadow-lg hover:shadow-red-200 flex items-center gap-2"
           >
             <span className="text-lg">+</span> New Form
           </button>
         </div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           {[
             { label: 'Total Forms', value: forms.length, icon: '📋' },
@@ -194,7 +187,7 @@ router.push(`/dashboard/forms/${data.form._id}`)
             { label: 'Total Responses', value: forms.reduce((a, f) => a + f.totalResponses, 0), icon: '📥' },
             { label: 'Total Views', value: forms.reduce((a, f) => a + f.totalViews, 0), icon: '👁️' },
           ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div key={i} className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-all">
               <p className="text-2xl mb-2">{stat.icon}</p>
               <p className="text-3xl font-black text-gray-950">{stat.value}</p>
               <p className="text-gray-400 text-sm mt-1">{stat.label}</p>
@@ -218,14 +211,14 @@ router.push(`/dashboard/forms/${data.form._id}`)
           <div className="grid gap-4">
             {forms.map(form => (
               <div key={form._id} className="bg-white rounded-2xl border border-gray-100 p-6 flex items-center gap-6 hover:border-red-100 hover:shadow-md transition-all">
-                <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-xl flex-shrink-0">📋</div>
+                <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-xl shrink-0">📋</div>
                 <div className="flex-1 min-w-0">
-                <h3 
-  className="font-bold text-gray-900 truncate cursor-pointer hover:text-red-600 transition-colors"
-  onClick={() => router.push(`/dashboard/forms/${form._id}`)}
->
-  {form.title}
-</h3>
+                  <h3
+                    className="font-bold text-gray-900 truncate cursor-pointer hover:text-red-600 transition-colors"
+                    onClick={() => router.push(`/dashboard/forms/${form._id}`)}
+                  >
+                    {form.title}
+                  </h3>
                   <p className="text-gray-400 text-xs mt-1">
                     {new Date(form.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
@@ -246,19 +239,25 @@ router.push(`/dashboard/forms/${data.form._id}`)
                   }`}>
                     {form.isPublished ? '🟢 Live' : '⚪ Draft'}
                   </span>
-                  <button onClick={() => togglePublish(form._id)}
+                  <button onClick={() => togglePublish(form._id, form.isPublished)}
                     className="px-4 py-2 border border-gray-200 hover:border-red-300 rounded-xl text-xs font-semibold text-gray-600 hover:text-red-600 transition-all"
                   >
                     {form.isPublished ? 'Unpublish' : 'Publish'}
                   </button>
                   {form.isPublished && (
                     <button
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/f/${form.shareToken}`)}
+                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/f/${form.shareToken}`); alert('Link copied!') }}
                       className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition-all"
                     >
                       Copy Link
                     </button>
                   )}
+                  <button
+                    onClick={() => router.push(`/dashboard/forms/${form._id}`)}
+                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-xs font-semibold transition-all"
+                  >
+                    Edit
+                  </button>
                   <button onClick={() => deleteForm(form._id)}
                     className="px-4 py-2 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-xl text-xs font-semibold transition-all"
                   >
@@ -271,31 +270,55 @@ router.push(`/dashboard/forms/${data.form._id}`)
         )}
       </div>
 
-      {/* Create Form Modal */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-black text-gray-950 mb-2">Create new form</h2>
-            <p className="text-gray-400 text-sm mb-6">Give your form a name to get started</p>
-            <input
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && createForm()}
-              placeholder="e.g. Contact Us, Book a Demo, Get a Quote"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-50 transition-all mb-4"
-              autoFocus
-            />
-            <div className="flex gap-3">
-              <button onClick={() => setShowModal(false)}
-                className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button onClick={createForm} disabled={creating || !newTitle.trim()}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white py-3 rounded-xl font-bold text-sm transition-all"
-              >
-                {creating ? 'Creating...' : 'Create Form →'}
-              </button>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-xl font-black text-gray-950">Create new form</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-400 text-sm mb-5">How do you want to create your form?</p>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {[
+                  { icon: '✏️', title: 'From scratch', desc: 'Start with a blank canvas' },
+                  { icon: '📋', title: 'From template', desc: 'Pick from 50+ templates' },
+                  { icon: '✨', title: 'Create with AI', desc: 'Describe and AI builds it' },
+                ].map((opt, i) => (
+                  <button key={i}
+                    onClick={() => { if (i === 1) { setShowModal(false); router.push('/templates') } }}
+                    className="border-2 border-gray-100 hover:border-red-200 rounded-2xl p-5 text-center transition-all hover:bg-red-50 group"
+                  >
+                    <span className="text-3xl mb-3 block">{opt.icon}</span>
+                    <p className="font-bold text-gray-900 text-sm mb-1 group-hover:text-red-600">{opt.title}</p>
+                    <p className="text-gray-400 text-xs">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="border-t border-gray-100 pt-5">
+                <p className="text-sm font-semibold text-gray-700 mb-3">Form name</p>
+                <input
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && createForm()}
+                  placeholder="e.g. Contact Us, Book a Demo, Get a Quote"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-50 transition-all mb-4"
+                  autoFocus
+                />
+                <div className="flex gap-3">
+                  <button onClick={() => setShowModal(false)}
+                    className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button onClick={createForm} disabled={creating || !newTitle.trim()}
+                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white py-3 rounded-xl font-bold text-sm transition-all"
+                  >
+                    {creating ? 'Creating...' : 'Create Form →'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
