@@ -304,7 +304,10 @@ export default function DashboardPage() {
                   { icon: '✨', title: 'Create with AI', desc: 'Describe and AI builds it' },
                 ].map((opt, i) => (
                   <button key={i}
-                    onClick={() => { if (i === 1) { setShowModal(false); router.push('/templates') } }}
+                    onClick={() => {
+  if (i === 1) { setShowModal(false); router.push('/templates') }
+  if (i === 2) { setShowModal(false); router.push('/dashboard/ai-builder') }
+}}
                     className="border-2 border-gray-100 hover:border-red-200 rounded-2xl p-5 text-center transition-all hover:bg-red-50 group"
                   >
                     <span className="text-3xl mb-3 block">{opt.icon}</span>
